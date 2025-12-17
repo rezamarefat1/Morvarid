@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Egg, Fingerprint, Loader2, User, Lock } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ThemeToggle } from "@/components/utilities/ThemeToggle";
 
 export default function Login() {
   const { login, loginWithBiometric, isBiometricAvailable } = useAuth();
