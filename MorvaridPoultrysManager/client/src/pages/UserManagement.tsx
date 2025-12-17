@@ -434,7 +434,7 @@ const UserManagementPage: React.FC = () => {
                   const statusColor = user.isActive !== undefined ? (user.isActive ? "bg-green-500" : "bg-red-500") : "bg-green-500";
                   
                   // Mock last visit date - using createdAt for now since lastVisit date is not available
-                  const lastVisitDate = user.createdAt || new Date().toISOString();
+                  const lastVisitDate = user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt || new Date().toISOString();
                   const visitDateFormatted = formatDate(lastVisitDate);
                   const dayOfWeek = getDayOfWeek(lastVisitDate);
                   
