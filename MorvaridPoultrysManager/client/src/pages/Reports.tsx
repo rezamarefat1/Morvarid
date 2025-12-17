@@ -2,34 +2,57 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FarmSelector } from "@/components/FarmSelector";
+import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import { useToast } from "@/hooks/use-toast";
 import { formatNumber, formatCurrency, getTodayJalali } from "@/lib/jalali";
-import { exportProductionToExcel, exportInvoicesToExcel } from "@/lib/excel";
-import { Download, FileSpreadsheet, Egg, ShoppingCart, TrendingUp, Calendar } from "lucide-react";
-import type { ProductionRecord, SalesInvoice, FarmType } from "@shared/schema";
+import { exportInvoicesToExcel } from "@/lib/excel";
+import { Download, Egg, ShoppingCart, Search, BarChart3, FileText } from "lucide-react";
+import type { ProductionRecord, SalesInvoice, Farm } from "@shared/schema";
 
 export default function Reports() {
-  const [selectedFarm, setSelectedFarm] = useState<FarmType | "all">("all");
+  const [reportType, setReportType] = useState<"stats" | "invoices">("stats");
+  const [selectedFarmId, setSelectedFarmId] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState(getTodayJalali());
+  const [showResults, setShowResults] = useState(false);
   const { toast } = useToast();
 
-  const { data: productionRecords, isLoading: isLoadingProduction } = useQuery<ProductionRecord[]>({
+  const { data: farms } = useQuery<Farm[]>({
+    queryKey: ["/api/farms/active"],
+  });
+
+  const { data: productionRecords, isLoading: isLoadingProduction, refetch: refetchProduction } = useQuery<ProductionRecord[]>({
     queryKey: ["/api/production"],
+    enabled: false,
   });
 
-  const { data: invoices, isLoading: isLoadingInvoices } = useQuery<SalesInvoice[]>({
+  const { data: invoices, isLoading: isLoadingInvoices, refetch: refetchInvoices } = useQuery<SalesInvoice[]>({
     queryKey: ["/api/invoices"],
+    enabled: false,
   });
 
-  const filteredProduction = productionRecords?.filter(
-    (r) => selectedFarm === "all" || r.farmType === selectedFarm
-  ) || [];
+  const handleShowResults = () => {
+    setShowResults(true);
+    if (reportType === "stats") {
+      refetchProduction();
+    } else {
+      refetchInvoices();
+    }
+  };
 
-  const filteredInvoices = invoices?.filter(
-    (i) => selectedFarm === "all" || i.farmType === selectedFarm
-  ) || [];
+  const filteredProduction = productionRecords?.filter(r => {
+    if (selectedFarmId && r.farmId !== selectedFarmId) return false;
+    if (selectedDate && r.date !== selectedDate) return false;
+    return true;
+  }) || [];
+
+  const filteredInvoices = invoices?.filter(i => {
+    if (selectedFarmId && i.farmId !== selectedFarmId) return false;
+    if (selectedDate && i.date !== selectedDate) return false;
+    return true;
+  }) || [];
 
   const productionSummary = {
     totalEggs: filteredProduction.reduce((sum, r) => sum + r.eggCount, 0),
@@ -41,25 +64,24 @@ export default function Reports() {
 
   const salesSummary = {
     totalSales: filteredInvoices.reduce((sum, i) => sum + i.totalPrice, 0),
-    totalQuantity: filteredInvoices.reduce((sum, i) => sum + i.eggQuantity, 0),
+    totalQuantity: filteredInvoices.reduce((sum, i) => sum + i.quantity, 0),
     paidCount: filteredInvoices.filter((i) => i.isPaid).length,
     unpaidCount: filteredInvoices.filter((i) => !i.isPaid).length,
     invoiceCount: filteredInvoices.length,
   };
 
-  const handleExportProduction = () => {
-    if (filteredProduction.length) {
-      exportProductionToExcel(filteredProduction, `گزارش-تولید-${getTodayJalali()}`);
-      toast({
-        title: "دانلود شد",
-        description: "گزارش تولید با موفقیت دانلود شد",
-      });
-    }
+  const getFarmName = (farmId: string) => {
+    return farms?.find(f => f.id === farmId)?.name || "نامشخص";
   };
 
   const handleExportSales = () => {
     if (filteredInvoices.length) {
-      exportInvoicesToExcel(filteredInvoices, `گزارش-فروش-${getTodayJalali()}`);
+      const excelData = filteredInvoices.map(inv => ({
+        ...inv,
+        farmType: getFarmName(inv.farmId) as any,
+        eggQuantity: inv.quantity,
+      }));
+      exportInvoicesToExcel(excelData, `گزارش-${selectedDate}`);
       toast({
         title: "دانلود شد",
         description: "گزارش فروش با موفقیت دانلود شد",
@@ -67,250 +89,244 @@ export default function Reports() {
     }
   };
 
-  const isLoading = isLoadingProduction || isLoadingInvoices;
+  const isLoading = reportType === "stats" ? isLoadingProduction : isLoadingInvoices;
 
   return (
     <div className="p-4 md:p-6 pb-24 md:pb-6">
       <header className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold mb-1">گزارش‌ها</h1>
-        <p className="text-muted-foreground">مشاهده و دانلود گزارش‌های تولید و فروش</p>
+        <h1 className="text-2xl md:text-3xl font-bold mb-1">گزارشات ثبت شده</h1>
+        <p className="text-muted-foreground">مشاهده گزارش‌های تولید و فروش</p>
       </header>
 
-      <div className="mb-6">
-        <label className="text-sm font-medium mb-2 block">فیلتر بر اساس فارم</label>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setSelectedFarm("all")}
-            className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all font-medium text-sm ${
-              selectedFarm === "all"
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground"
-            }`}
-            data-testid="button-filter-all"
-          >
-            همه
-          </button>
-          <button
-            onClick={() => setSelectedFarm("morvaridi")}
-            className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all font-medium text-sm ${
-              selectedFarm === "morvaridi"
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground"
-            }`}
-            data-testid="button-filter-morvaridi"
-          >
-            مرواریدی
-          </button>
-          <button
-            onClick={() => setSelectedFarm("motafarreqe")}
-            className={`flex-1 py-2 px-4 rounded-lg border-2 transition-all font-medium text-sm ${
-              selectedFarm === "motafarreqe"
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card text-muted-foreground"
-            }`}
-            data-testid="button-filter-motafarreqe"
-          >
-            متفرقه
-          </button>
-        </div>
-      </div>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">فیلتر گزارشات</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">نوع گزارش</label>
+            <Tabs value={reportType} onValueChange={(v) => {
+              setReportType(v as "stats" | "invoices");
+              setShowResults(false);
+            }}>
+              <TabsList className="w-full">
+                <TabsTrigger value="stats" className="flex-1 gap-2">
+                  <BarChart3 className="w-4 h-4" />
+                  آمار تولید
+                </TabsTrigger>
+                <TabsTrigger value="invoices" className="flex-1 gap-2">
+                  <FileText className="w-4 h-4" />
+                  حواله‌های فروش
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
 
-      <Tabs defaultValue="production" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="production" data-testid="tab-production">
-            <Egg className="w-4 h-4 ml-2" />
-            گزارش تولید
-          </TabsTrigger>
-          <TabsTrigger value="sales" data-testid="tab-sales">
-            <ShoppingCart className="w-4 h-4 ml-2" />
-            گزارش فروش
-          </TabsTrigger>
-        </TabsList>
+          <div>
+            <label className="text-sm font-medium mb-2 block">انتخاب فارم</label>
+            <FarmSelector
+              value={selectedFarmId}
+              onChange={(v) => {
+                setSelectedFarmId(v);
+                setShowResults(false);
+              }}
+            />
+          </div>
 
-        <TabsContent value="production" className="space-y-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">تاریخ</label>
+            <JalaliDatePicker
+              value={selectedDate}
+              onChange={(v) => {
+                setSelectedDate(v);
+                setShowResults(false);
+              }}
+            />
+          </div>
+
+          <Button onClick={handleShowResults} className="w-full" disabled={!selectedFarmId}>
+            <Search className="w-4 h-4 ml-2" />
+            نمایش گزارش
+          </Button>
+        </CardContent>
+      </Card>
+
+      {showResults && (
+        <>
           {isLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-24" />
               ))}
             </div>
+          ) : reportType === "stats" ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Egg className="w-5 h-5" />
+                  آمار تولید - {selectedDate}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!filteredProduction.length ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    هیچ رکوردی برای این تاریخ یافت نشد
+                  </p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="p-3 bg-muted rounded-lg text-center">
+                        <p className="text-2xl font-bold">{formatNumber(productionSummary.totalEggs)}</p>
+                        <p className="text-sm text-muted-foreground">کل تولید</p>
+                      </div>
+                      <div className="p-3 bg-muted rounded-lg text-center">
+                        <p className="text-2xl font-bold">{formatNumber(productionSummary.totalBroken)}</p>
+                        <p className="text-sm text-muted-foreground">شکسته</p>
+                      </div>
+                      <div className="p-3 bg-muted rounded-lg text-center">
+                        <p className="text-2xl font-bold">{formatNumber(productionSummary.totalMortality)}</p>
+                        <p className="text-sm text-muted-foreground">تلفات</p>
+                      </div>
+                      <div className="p-3 bg-muted rounded-lg text-center">
+                        <p className="text-2xl font-bold">{formatNumber(productionSummary.totalFeed)}</p>
+                        <p className="text-sm text-muted-foreground">دان (کیلو)</p>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {filteredProduction.map((record) => (
+                        <div key={record.id} className="p-4 border rounded-lg">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                              {getFarmName(record.farmId)}
+                            </span>
+                            <span className="text-sm text-muted-foreground">{record.date}</span>
+                            {record.createdTime && (
+                              <span className="text-xs text-muted-foreground">ساعت {record.createdTime}</span>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">تولید: </span>
+                              <span className="font-semibold">{formatNumber(record.eggCount)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">شکسته: </span>
+                              <span className="font-semibold">{formatNumber(record.brokenEggs)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">تلفات: </span>
+                              <span className="font-semibold">{formatNumber(record.mortality)}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">دان: </span>
+                              <span className="font-semibold">{formatNumber(record.feedConsumption)} کیلو</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           ) : (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Egg className="w-8 h-8 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(productionSummary.totalEggs)}</p>
-                    <p className="text-sm text-muted-foreground">کل تخم‌مرغ</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 text-chart-2" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(productionSummary.totalBroken)}</p>
-                    <p className="text-sm text-muted-foreground">تخم‌مرغ شکسته</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Calendar className="w-8 h-8 mx-auto mb-2 text-chart-4" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(productionSummary.totalMortality)}</p>
-                    <p className="text-sm text-muted-foreground">کل تلفات</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 text-chart-5" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(productionSummary.recordCount)}</p>
-                    <p className="text-sm text-muted-foreground">تعداد رکورد</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-                  <CardTitle className="text-lg">خلاصه تولید</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportProduction}
-                    disabled={!filteredProduction.length}
-                    data-testid="button-export-production"
-                  >
-                    <Download className="w-4 h-4 ml-2" />
-                    خروجی اکسل
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5" />
+                  حواله‌های فروش - {selectedDate}
+                </CardTitle>
+                {filteredInvoices.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={handleExportSales}>
+                    <Download className="w-4 h-4 ml-1" />
+                    اکسل
                   </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">کل تخم‌مرغ سالم</span>
-                      <span className="font-semibold tabular-nums">
-                        {formatNumber(productionSummary.totalEggs - productionSummary.totalBroken)} عدد
-                      </span>
+                )}
+              </CardHeader>
+              <CardContent>
+                {!filteredInvoices.length ? (
+                  <p className="text-center text-muted-foreground py-8">
+                    هیچ حواله‌ای برای این تاریخ یافت نشد
+                  </p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="p-3 bg-muted rounded-lg text-center">
+                        <p className="text-2xl font-bold">{formatNumber(salesSummary.invoiceCount)}</p>
+                        <p className="text-sm text-muted-foreground">تعداد حواله</p>
+                      </div>
+                      <div className="p-3 bg-muted rounded-lg text-center">
+                        <p className="text-2xl font-bold">{formatNumber(salesSummary.totalQuantity)}</p>
+                        <p className="text-sm text-muted-foreground">تعداد فروش</p>
+                      </div>
+                      <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg text-center">
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatNumber(salesSummary.paidCount)}</p>
+                        <p className="text-sm text-muted-foreground">پرداخت شده</p>
+                      </div>
+                      <div className="p-3 bg-red-100 dark:bg-red-900 rounded-lg text-center">
+                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatNumber(salesSummary.unpaidCount)}</p>
+                        <p className="text-sm text-muted-foreground">پرداخت نشده</p>
+                      </div>
                     </div>
-                    <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">درصد شکستگی</span>
-                      <span className="font-semibold tabular-nums">
-                        {productionSummary.totalEggs > 0
-                          ? ((productionSummary.totalBroken / productionSummary.totalEggs) * 100).toFixed(2)
-                          : "0"}%
-                      </span>
+                    <div className="p-4 bg-primary/10 rounded-lg mb-4">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">جمع کل فروش:</span>
+                        <span className="text-2xl font-bold text-primary">{formatCurrency(salesSummary.totalSales)}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">کل مصرف دان</span>
-                      <span className="font-semibold tabular-nums">
-                        {formatNumber(productionSummary.totalFeed)} کیلوگرم
-                      </span>
+                    <div className="space-y-3">
+                      {filteredInvoices.map((invoice) => (
+                        <div key={invoice.id} className="p-4 border rounded-lg">
+                          <div className="flex justify-between items-start mb-2">
+                            <div>
+                              <span className="font-semibold">{invoice.invoiceNumber}</span>
+                              <span className="mx-2">-</span>
+                              <span>{invoice.customerName}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              invoice.isPaid 
+                                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" 
+                                : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                            }`}>
+                              {invoice.isPaid ? "پرداخت شده" : "پرداخت نشده"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                            <div>
+                              <span className="text-muted-foreground">تاریخ: </span>
+                              <span>{invoice.date}</span>
+                            </div>
+                            {invoice.createdTime && (
+                              <div>
+                                <span className="text-muted-foreground">ساعت: </span>
+                                <span>{invoice.createdTime}</span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-muted-foreground">تعداد: </span>
+                              <span className="font-semibold">{formatNumber(invoice.quantity)}</span>
+                            </div>
+                            {invoice.weight && (
+                              <div>
+                                <span className="text-muted-foreground">وزن: </span>
+                                <span>{formatNumber(invoice.weight)} کیلو</span>
+                              </div>
+                            )}
+                            <div>
+                              <span className="text-muted-foreground">مبلغ: </span>
+                              <span className="font-bold text-primary">{formatCurrency(invoice.totalPrice)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-muted-foreground">میانگین تولید روزانه</span>
-                      <span className="font-semibold tabular-nums">
-                        {productionSummary.recordCount > 0
-                          ? formatNumber(Math.round(productionSummary.totalEggs / productionSummary.recordCount))
-                          : "0"} عدد
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
+                  </>
+                )}
+              </CardContent>
+            </Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="sales" className="space-y-4">
-          {isLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-24" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <ShoppingCart className="w-8 h-8 mx-auto mb-2 text-primary" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(salesSummary.invoiceCount)}</p>
-                    <p className="text-sm text-muted-foreground">تعداد حواله</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Egg className="w-8 h-8 mx-auto mb-2 text-chart-2" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(salesSummary.totalQuantity)}</p>
-                    <p className="text-sm text-muted-foreground">تخم‌مرغ فروخته شده</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <TrendingUp className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(salesSummary.paidCount)}</p>
-                    <p className="text-sm text-muted-foreground">پرداخت شده</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4 text-center">
-                    <Calendar className="w-8 h-8 mx-auto mb-2 text-destructive" />
-                    <p className="text-2xl font-bold tabular-nums">{formatNumber(salesSummary.unpaidCount)}</p>
-                    <p className="text-sm text-muted-foreground">پرداخت نشده</p>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-                  <CardTitle className="text-lg">خلاصه فروش</CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleExportSales}
-                    disabled={!filteredInvoices.length}
-                    data-testid="button-export-sales"
-                  >
-                    <Download className="w-4 h-4 ml-2" />
-                    خروجی اکسل
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">کل فروش</span>
-                      <span className="font-bold text-primary tabular-nums text-lg">
-                        {formatCurrency(salesSummary.totalSales)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">میانگین قیمت هر تخم‌مرغ</span>
-                      <span className="font-semibold tabular-nums">
-                        {salesSummary.totalQuantity > 0
-                          ? formatCurrency(Math.round(salesSummary.totalSales / salesSummary.totalQuantity))
-                          : "0 تومان"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">مبلغ پرداخت شده</span>
-                      <span className="font-semibold tabular-nums text-green-600">
-                        {formatCurrency(
-                          filteredInvoices.filter((i) => i.isPaid).reduce((sum, i) => sum + i.totalPrice, 0)
-                        )}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-muted-foreground">مبلغ پرداخت نشده</span>
-                      <span className="font-semibold tabular-nums text-destructive">
-                        {formatCurrency(
-                          filteredInvoices.filter((i) => !i.isPaid).reduce((sum, i) => sum + i.totalPrice, 0)
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
     </div>
   );
 }

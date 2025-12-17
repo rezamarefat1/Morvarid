@@ -1,18 +1,36 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatCard } from "@/components/StatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatJalaliDateLong, formatNumber, formatCurrency } from "@/lib/jalali";
-import { Egg, TrendingUp, Skull, ShoppingCart, Package, AlertCircle } from "lucide-react";
-import type { DashboardStats } from "@shared/schema";
+import { Building2, Users, FileText, BarChart3, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import type { DashboardStats, Farm, User, SalesInvoice } from "@shared/schema";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { getRoleName } from "@shared/schema";
 
 export default function Dashboard() {
   const today = new Date();
+  const [showFarmStatus, setShowFarmStatus] = useState(false);
+  const [showUsers, setShowUsers] = useState(false);
+  const [showInvoices, setShowInvoices] = useState(false);
 
-  const { data: stats, isLoading, error } = useQuery<DashboardStats>({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/stats/dashboard"],
+  });
+
+  const { data: farms } = useQuery<Farm[]>({
+    queryKey: ["/api/farms"],
+  });
+
+  const { data: users } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+  });
+
+  const { data: recentInvoices } = useQuery<SalesInvoice[]>({
+    queryKey: ["/api/invoices", { limit: "7" }],
   });
 
   if (isLoading) {
@@ -31,152 +49,220 @@ export default function Dashboard() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="p-4 md:p-6">
-        <Card className="border-destructive">
-          <CardContent className="p-6 text-center">
-            <AlertCircle className="w-12 h-12 mx-auto text-destructive mb-4" />
-            <h3 className="font-semibold text-lg mb-2">خطا در بارگذاری اطلاعات</h3>
-            <p className="text-muted-foreground">لطفاً دوباره تلاش کنید</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const defaultStats: DashboardStats = {
-    totalEggsToday: 0,
-    totalEggsThisWeek: 0,
-    totalEggsThisMonth: 0,
-    morvaridiEggsToday: 0,
-    motafarreqeEggsToday: 0,
-    totalSalesToday: 0,
-    totalSalesThisMonth: 0,
-    mortalityThisWeek: 0,
-    currentInventory: { morvaridi: 0, motafarreqe: 0 },
-  };
-
-  const data = stats || defaultStats;
+  const activeFarms = farms?.filter(f => f.isActive) || [];
+  const inactiveFarms = farms?.filter(f => !f.isActive) || [];
 
   return (
     <div className="p-4 md:p-6 pb-24 md:pb-6">
       <header className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold mb-1">داشبورد</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-1">داشبورد مدیریت</h1>
         <p className="text-muted-foreground">{formatJalaliDateLong(today)}</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          title="تولید امروز"
-          value={data.totalEggsToday}
-          unit="عدد"
-          icon={Egg}
-          iconColor="text-primary"
-        />
-        <StatCard
-          title="تولید این هفته"
-          value={data.totalEggsThisWeek}
-          unit="عدد"
-          icon={TrendingUp}
-          iconColor="text-chart-2"
-        />
-        <StatCard
-          title="تولید این ماه"
-          value={data.totalEggsThisMonth}
-          unit="عدد"
-          icon={Package}
-          iconColor="text-chart-4"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setShowFarmStatus(true)}
+        >
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-primary" />
-              فارم مرواریدی
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Building2 className="w-4 h-4" />
+              وضعیت فارم‌ها
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-3xl font-bold tabular-nums">{formatNumber(data.morvaridiEggsToday)}</p>
-                <p className="text-sm text-muted-foreground">تخم‌مرغ امروز</p>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                <span className="text-2xl font-bold">{activeFarms.length}</span>
+                <span className="text-sm text-muted-foreground">فعال</span>
               </div>
-              <div className="text-left">
-                <p className="text-lg font-semibold tabular-nums">{formatNumber(data.currentInventory.morvaridi)}</p>
-                <p className="text-sm text-muted-foreground">موجودی</p>
+              <div className="flex items-center gap-1">
+                <XCircle className="w-5 h-5 text-red-500" />
+                <span className="text-2xl font-bold">{inactiveFarms.length}</span>
+                <span className="text-sm text-muted-foreground">غیرفعال</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setShowUsers(true)}
+        >
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-chart-2" />
-              فارم متفرقه
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              کاربران سیستم
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-3xl font-bold tabular-nums">{formatNumber(data.motafarreqeEggsToday)}</p>
-                <p className="text-sm text-muted-foreground">تخم‌مرغ امروز</p>
-              </div>
-              <div className="text-left">
-                <p className="text-lg font-semibold tabular-nums">{formatNumber(data.currentInventory.motafarreqe)}</p>
-                <p className="text-sm text-muted-foreground">موجودی</p>
-              </div>
-            </div>
+            <p className="text-3xl font-bold">{stats?.totalUsersCount || 0}</p>
+            <p className="text-sm text-muted-foreground">کاربر ثبت شده</p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setShowInvoices(true)}
+        >
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              کل حواله‌ها
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold">{stats?.totalInvoicesCount || 0}</p>
+            <p className="text-sm text-muted-foreground">حواله ثبت شده</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <StatCard
-          title="فروش امروز"
-          value={data.totalSalesToday}
-          unit="تومان"
-          icon={ShoppingCart}
-          iconColor="text-chart-4"
-        />
-        <StatCard
-          title="فروش این ماه"
-          value={data.totalSalesThisMonth}
-          unit="تومان"
-          icon={TrendingUp}
-          iconColor="text-chart-5"
-        />
-        <StatCard
-          title="تلفات این هفته"
-          value={data.mortalityThisWeek}
-          unit="قطعه"
-          icon={Skull}
-          iconColor="text-destructive"
-        />
-      </div>
-
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-lg">دسترسی سریع</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            گزارشات ثبت شده
+          </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3">
-          <Link href="/production">
-            <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2" data-testid="link-production">
-              <Egg className="w-6 h-6" />
-              <span>ثبت تولید</span>
-            </Button>
-          </Link>
-          <Link href="/sales">
-            <Button variant="outline" className="w-full h-auto py-4 flex-col gap-2" data-testid="link-sales">
-              <ShoppingCart className="w-6 h-6" />
-              <span>حواله فروش</span>
+        <CardContent>
+          <Link href="/reports">
+            <Button variant="outline" className="w-full">
+              مشاهده گزارشات
             </Button>
           </Link>
         </CardContent>
       </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>آمار فارم‌ها</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {stats?.farmStats?.length ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {stats.farmStats.map((farm) => (
+                <div key={farm.farmId} className="p-4 border rounded-lg">
+                  <h3 className="font-semibold mb-2">{farm.farmName}</h3>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">تولید امروز: </span>
+                      <span className="font-semibold">{formatNumber(farm.eggsToday)}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">موجودی: </span>
+                      <span className="font-semibold">{formatNumber(farm.currentStock)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-4">هیچ فارم فعالی وجود ندارد</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showFarmStatus} onOpenChange={setShowFarmStatus}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>وضعیت فارم‌ها</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {activeFarms.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-2 flex items-center gap-2 text-green-600">
+                  <CheckCircle className="w-4 h-4" />
+                  فارم‌های فعال
+                </h3>
+                <div className="space-y-2">
+                  {activeFarms.map(farm => (
+                    <div key={farm.id} className="p-3 border rounded-lg bg-green-50 dark:bg-green-950">
+                      <p className="font-medium">{farm.name}</p>
+                      <p className="text-sm text-muted-foreground">{farm.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {inactiveFarms.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-2 flex items-center gap-2 text-red-600">
+                  <XCircle className="w-4 h-4" />
+                  فارم‌های غیرفعال
+                </h3>
+                <div className="space-y-2">
+                  {inactiveFarms.map(farm => (
+                    <div key={farm.id} className="p-3 border rounded-lg bg-red-50 dark:bg-red-950">
+                      <p className="font-medium">{farm.name}</p>
+                      <p className="text-sm text-muted-foreground">{farm.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showUsers} onOpenChange={setShowUsers}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>کاربران سیستم</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {users?.map(user => (
+              <div key={user.id} className="p-3 border rounded-lg flex justify-between items-center">
+                <div>
+                  <p className="font-medium">{user.fullName}</p>
+                  <p className="text-sm text-muted-foreground">{user.username}</p>
+                </div>
+                <Badge variant={user.isActive ? "default" : "secondary"}>
+                  {getRoleName(user.role)}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showInvoices} onOpenChange={setShowInvoices}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>حواله‌های اخیر</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {recentInvoices?.map(invoice => (
+              <div key={invoice.id} className="p-3 border rounded-lg">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-medium">{invoice.customerName}</p>
+                    <p className="text-sm text-muted-foreground">{invoice.invoiceNumber}</p>
+                  </div>
+                  <Badge variant={invoice.isPaid ? "default" : "secondary"}>
+                    {invoice.isPaid ? "پرداخت شده" : "پرداخت نشده"}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">تاریخ: </span>
+                    <span>{invoice.date}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">تعداد: </span>
+                    <span>{formatNumber(invoice.quantity)}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">مبلغ: </span>
+                    <span className="font-semibold text-primary">{formatCurrency(invoice.totalPrice)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

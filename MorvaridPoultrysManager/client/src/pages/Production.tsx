@@ -3,8 +3,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { productionFormSchema, type ProductionForm, type ProductionRecord, type FarmType } from "@shared/schema";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { productionFormSchema, type ProductionForm, type ProductionRecord, type Farm } from "@shared/schema";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,27 +14,33 @@ import { JalaliDatePicker } from "@/components/JalaliDatePicker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { getTodayJalali, formatNumber } from "@/lib/jalali";
-import { Plus, Loader2, Egg, Trash2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, Egg, Trash2, Edit2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function Production() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<ProductionRecord | null>(null);
   const { toast } = useToast();
 
   const { data: records, isLoading } = useQuery<ProductionRecord[]>({
     queryKey: ["/api/production"],
   });
 
+  const { data: farms } = useQuery<Farm[]>({
+    queryKey: ["/api/farms/active"],
+  });
+
   const form = useForm<ProductionForm>({
     resolver: zodResolver(productionFormSchema),
     defaultValues: {
-      farmType: "morvaridi",
+      farmId: "",
       date: getTodayJalali(),
       eggCount: 0,
       brokenEggs: 0,
       mortality: 0,
       feedConsumption: 0,
       waterConsumption: 0,
+      yesterdayInventory: 0,
       notes: "",
     },
   });
@@ -50,22 +56,37 @@ export default function Production() {
         title: "ثبت شد",
         description: "آمار تولید با موفقیت ثبت شد",
       });
-      form.reset({
-        farmType: "morvaridi",
-        date: getTodayJalali(),
-        eggCount: 0,
-        brokenEggs: 0,
-        mortality: 0,
-        feedConsumption: 0,
-        waterConsumption: 0,
-        notes: "",
+      resetForm();
+      setIsDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "خطا",
+        description: error.message || "مشکلی در ثبت اطلاعات رخ داده است",
+        variant: "destructive",
       });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<ProductionForm> }) => {
+      return apiRequest("PUT", `/api/production/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/production"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/dashboard"] });
+      toast({
+        title: "ویرایش شد",
+        description: "رکورد با موفقیت ویرایش شد",
+      });
+      setEditingRecord(null);
+      resetForm();
       setIsDialogOpen(false);
     },
     onError: () => {
       toast({
         title: "خطا",
-        description: "مشکلی در ثبت اطلاعات رخ داده است",
+        description: "مشکلی در ویرایش رخ داده است",
         variant: "destructive",
       });
     },
@@ -85,22 +106,62 @@ export default function Production() {
     },
   });
 
-  const onSubmit = (data: ProductionForm) => {
-    createMutation.mutate(data);
+  const resetForm = () => {
+    form.reset({
+      farmId: "",
+      date: getTodayJalali(),
+      eggCount: 0,
+      brokenEggs: 0,
+      mortality: 0,
+      feedConsumption: 0,
+      waterConsumption: 0,
+      yesterdayInventory: 0,
+      notes: "",
+    });
   };
 
-  const getFarmLabel = (farmType: FarmType) => {
-    return farmType === "morvaridi" ? "مرواریدی" : "متفرقه";
+  const onSubmit = (data: ProductionForm) => {
+    if (editingRecord) {
+      updateMutation.mutate({ id: editingRecord.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleEdit = (record: ProductionRecord) => {
+    setEditingRecord(record);
+    form.reset({
+      farmId: record.farmId,
+      date: record.date,
+      eggCount: record.eggCount,
+      brokenEggs: record.brokenEggs,
+      mortality: record.mortality,
+      feedConsumption: record.feedConsumption,
+      waterConsumption: record.waterConsumption,
+      yesterdayInventory: record.yesterdayInventory || 0,
+      notes: record.notes || "",
+    });
+    setIsDialogOpen(true);
+  };
+
+  const getFarmName = (farmId: string) => {
+    return farms?.find(f => f.id === farmId)?.name || "نامشخص";
   };
 
   return (
     <div className="p-4 md:p-6 pb-24 md:pb-6">
       <header className="flex items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">ثبت تولید</h1>
+          <h1 className="text-2xl md:text-3xl font-bold">ثبت آمار</h1>
           <p className="text-muted-foreground">مدیریت آمار تولید روزانه</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingRecord(null);
+            resetForm();
+          }
+        }}>
           <DialogTrigger asChild>
             <Button data-testid="button-add-production">
               <Plus className="w-4 h-4 ml-2" />
@@ -109,16 +170,16 @@ export default function Production() {
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>ثبت آمار تولید</DialogTitle>
+              <DialogTitle>{editingRecord ? "ویرایش آمار" : "ثبت آمار تولید"}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="farmType"
+                  name="farmId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>نوع فارم</FormLabel>
+                      <FormLabel>انتخاب فارم</FormLabel>
                       <FormControl>
                         <FarmSelector
                           value={field.value}
@@ -147,18 +208,39 @@ export default function Production() {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="yesterdayInventory"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>موجودی دیروز</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
+                          className="text-left"
+                          dir="ltr"
+                          data-testid="input-yesterday-inventory"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="eggCount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>تعداد تخم‌مرغ</FormLabel>
+                        <FormLabel>تولید روزانه</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={field.value || ""}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
                             className="text-left"
                             dir="ltr"
                             data-testid="input-egg-count"
@@ -178,8 +260,8 @@ export default function Production() {
                         <FormControl>
                           <Input
                             type="number"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={field.value || ""}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
                             className="text-left"
                             dir="ltr"
                             data-testid="input-broken-eggs"
@@ -200,8 +282,8 @@ export default function Production() {
                       <FormControl>
                         <Input
                           type="number"
-                          {...field}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
                           className="text-left"
                           dir="ltr"
                           data-testid="input-mortality"
@@ -223,8 +305,8 @@ export default function Production() {
                           <Input
                             type="number"
                             step="0.1"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={field.value || ""}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
                             className="text-left"
                             dir="ltr"
                             data-testid="input-feed"
@@ -245,8 +327,8 @@ export default function Production() {
                           <Input
                             type="number"
                             step="0.1"
-                            {...field}
-                            onChange={(e) => field.onChange(Number(e.target.value))}
+                            value={field.value || ""}
+                            onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : 0)}
                             className="text-left"
                             dir="ltr"
                             data-testid="input-water"
@@ -280,11 +362,11 @@ export default function Production() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={createMutation.isPending}
+                  disabled={createMutation.isPending || updateMutation.isPending}
                   data-testid="button-submit-production"
                 >
-                  {createMutation.isPending && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
-                  ثبت آمار
+                  {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
+                  {editingRecord ? "ذخیره تغییرات" : "ثبت آمار"}
                 </Button>
               </form>
             </Form>
@@ -318,18 +400,17 @@ export default function Production() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        record.farmType === "morvaridi" 
-                          ? "bg-primary/10 text-primary" 
-                          : "bg-chart-2/10 text-chart-2"
-                      }`}>
-                        {getFarmLabel(record.farmType)}
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary">
+                        {getFarmName(record.farmId)}
                       </span>
                       <span className="text-sm text-muted-foreground">{record.date}</span>
+                      {record.createdTime && (
+                        <span className="text-xs text-muted-foreground">ساعت {record.createdTime}</span>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                       <div>
-                        <span className="text-muted-foreground">تخم‌مرغ: </span>
+                        <span className="text-muted-foreground">تولید: </span>
                         <span className="font-semibold tabular-nums">{formatNumber(record.eggCount)}</span>
                       </div>
                       <div>
@@ -349,15 +430,25 @@ export default function Production() {
                       <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{record.notes}</p>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => deleteMutation.mutate(record.id)}
-                    disabled={deleteMutation.isPending}
-                    data-testid={`button-delete-${record.id}`}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEdit(record)}
+                      data-testid={`button-edit-${record.id}`}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => deleteMutation.mutate(record.id)}
+                      disabled={deleteMutation.isPending}
+                      data-testid={`button-delete-${record.id}`}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

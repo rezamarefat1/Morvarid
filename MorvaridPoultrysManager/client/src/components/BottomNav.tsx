@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", icon: LayoutDashboard, label: "داشبورد" },
-  { path: "/production", icon: Egg, label: "تولید" },
+  { path: "/production", icon: Egg, label: "ثبت آمار" },
   { path: "/sales", icon: FileText, label: "فروش" },
-  { path: "/reports", icon: BarChart3, label: "گزارش‌ها" },
+  { path: "/reports", icon: BarChart3, label: "گزارشات" },
   { path: "/settings", icon: Settings, label: "تنظیمات" },
 ];
 
