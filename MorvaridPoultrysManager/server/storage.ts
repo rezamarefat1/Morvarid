@@ -1,4 +1,4 @@
-import { 
+import {
   type User, type InsertUser,
   type ProductionRecord, type ProductionForm,
   type SalesInvoice, type InvoiceForm,
@@ -6,7 +6,8 @@ import {
   type DashboardStats,
   type Farm, type InsertFarm,
   type Product, type InsertProduct,
-  users, productionRecords, salesInvoices, inventory, farms, products
+  type Notification, type InsertNotification,
+  users, productionRecords, salesInvoices, inventory, farms, products, notifications
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, sql, desc, and } from "drizzle-orm";
@@ -54,11 +55,34 @@ export interface IStorage {
   updateInventory(farmId: string, eggChange: number): Promise<Inventory>;
   
   getDashboardStats(): Promise<DashboardStats>;
-  generateInvoiceNumber(): string;
+  generateInvoiceNumber(): Promise<string>;
+
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotificationsByUser(userId: string): Promise<Notification[]>;
+  markNotificationAsRead(id: string): Promise<boolean>;
 }
 
 class DatabaseStorage implements IStorage {
-  private invoiceCounter: number = 1000;
+  private async getNextInvoiceNumber(): Promise<number> {
+    try {
+      const invoices = await db.select({ invoiceNumber: salesInvoices.invoiceNumber })
+        .from(salesInvoices)
+        .orderBy(desc(salesInvoices.invoiceNumber));
+
+      if (invoices.length > 0) {
+        // Extract the numeric part from the highest invoice number
+        const highestInvoice = invoices[0];
+        const match = highestInvoice.invoiceNumber.match(/INV-\d+-(\d+)/);
+        if (match) {
+          return parseInt(match[1]) + 1;
+        }
+      }
+      return 1000; // default starting number
+    } catch (error) {
+      console.error('Error getting next invoice number:', error);
+      return 1000; // fallback to default
+    }
+  }
 
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -86,7 +110,7 @@ class DatabaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id));
-    return true;
+    return result.rowCount !== 0; // Only return true if a row was actually deleted
   }
 
   async getFarms(): Promise<Farm[]> {
@@ -113,8 +137,8 @@ class DatabaseStorage implements IStorage {
   }
 
   async deleteFarm(id: string): Promise<boolean> {
-    await db.delete(farms).where(eq(farms.id, id));
-    return true;
+    const result = await db.delete(farms).where(eq(farms.id, id));
+    return result.rowCount !== 0; // Only return true if a row was actually deleted
   }
 
   async getProducts(): Promise<Product[]> {
@@ -137,8 +161,8 @@ class DatabaseStorage implements IStorage {
   }
 
   async deleteProduct(id: string): Promise<boolean> {
-    await db.delete(products).where(eq(products.id, id));
-    return true;
+    const result = await db.delete(products).where(eq(products.id, id));
+    return result.rowCount !== 0; // Only return true if a row was actually deleted
   }
 
   async getProductionRecords(): Promise<ProductionRecord[]> {
@@ -163,15 +187,27 @@ class DatabaseStorage implements IStorage {
     if (!farm || !farm.isActive) {
       throw new Error("فارم انتخاب شده فعال نیست");
     }
-    
+
     const [newRecord] = await db.insert(productionRecords).values({
       ...record,
       createdTime: record.createdTime || new Date().toLocaleTimeString('fa-IR'),
     }).returning();
-    
+
     const netEggs = record.eggCount - record.brokenEggs;
     await this.updateInventory(record.farmId, netEggs);
-    
+
+    // Create notification for sales officers
+    const salesOfficers = await db.select().from(users).where(eq(users.role, 'sales_officer'));
+    for (const officer of salesOfficers) {
+      await this.createNotification({
+        userId: officer.id,
+        title: "ثبت آمار جدید",
+        message: `فارم ${farm.name} آمار خود را ثبت کرد`,
+        type: "statistics",
+        farmId: farm.id,
+      });
+    }
+
     return newRecord;
   }
 
@@ -183,12 +219,12 @@ class DatabaseStorage implements IStorage {
   async deleteProductionRecord(id: string): Promise<boolean> {
     const record = await this.getProductionRecord(id);
     if (!record) return false;
-    
+
     const netEggs = record.eggCount - record.brokenEggs;
     await this.updateInventory(record.farmId, -netEggs);
-    
-    await db.delete(productionRecords).where(eq(productionRecords.id, id));
-    return true;
+
+    const result = await db.delete(productionRecords).where(eq(productionRecords.id, id));
+    return result.rowCount !== 0; // Only return true if a row was actually deleted
   }
 
   async getInvoices(): Promise<SalesInvoice[]> {
@@ -217,14 +253,26 @@ class DatabaseStorage implements IStorage {
     if (!farm || !farm.isActive) {
       throw new Error("فارم انتخاب شده فعال نیست");
     }
-    
+
     const [newInvoice] = await db.insert(salesInvoices).values({
       ...invoice,
       createdTime: invoice.createdTime || new Date().toLocaleTimeString('fa-IR'),
     }).returning();
-    
+
     await this.updateInventory(invoice.farmId, -invoice.quantity);
-    
+
+    // Create notification for sales officers
+    const salesOfficers = await db.select().from(users).where(eq(users.role, 'sales_officer'));
+    for (const officer of salesOfficers) {
+      await this.createNotification({
+        userId: officer.id,
+        title: "حواله فروش جدید",
+        message: `مسئول ثبت فارم ${farm.name} یک حواله فروش ثبت کرد`,
+        type: "invoice",
+        farmId: farm.id,
+      });
+    }
+
     return newInvoice;
   }
 
@@ -236,11 +284,11 @@ class DatabaseStorage implements IStorage {
   async deleteInvoice(id: string): Promise<boolean> {
     const invoice = await this.getInvoice(id);
     if (!invoice) return false;
-    
+
     await this.updateInventory(invoice.farmId, invoice.quantity);
-    
-    await db.delete(salesInvoices).where(eq(salesInvoices.id, id));
-    return true;
+
+    const result = await db.delete(salesInvoices).where(eq(salesInvoices.id, id));
+    return result.rowCount !== 0; // Only return true if a row was actually deleted
   }
 
   async getInventory(farmId: string): Promise<Inventory | undefined> {
@@ -334,9 +382,29 @@ class DatabaseStorage implements IStorage {
     return `${jy}/${jm.toString().padStart(2, "0")}/${jd.toString().padStart(2, "0")}`;
   }
 
-  generateInvoiceNumber(): string {
-    this.invoiceCounter++;
-    return `INV-${Date.now()}-${this.invoiceCounter}`;
+  async generateInvoiceNumber(): Promise<string> {
+    const nextNumber = await this.getNextInvoiceNumber();
+    return `INV-${Date.now()}-${nextNumber}`;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db.insert(notifications).values(notification).returning();
+    return newNotification;
+  }
+
+  async getNotificationsByUser(userId: string): Promise<Notification[]> {
+    return await db.select().from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async markNotificationAsRead(id: string): Promise<boolean> {
+    const result = await db.update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, id))
+      .returning();
+
+    return result.length > 0;
   }
 }
 

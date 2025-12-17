@@ -298,7 +298,8 @@ export async function registerRoutes(
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
-      return res.status(500).json({ error: error.message || "خطا در ثبت رکورد" });
+      console.error("Error in production record creation:", error); // Log for debugging
+      return res.status(500).json({ error: "خطا در ثبت رکورد" });
     }
   });
 
@@ -366,7 +367,7 @@ export async function registerRoutes(
   app.post("/api/invoices", async (req, res) => {
     try {
       const data = invoiceFormSchema.parse(req.body);
-      const invoiceNumber = storage.generateInvoiceNumber();
+      const invoiceNumber = await storage.generateInvoiceNumber();
       const totalPrice = data.quantity * data.pricePerUnit;
       
       const invoice = await storage.createInvoice({
@@ -380,7 +381,8 @@ export async function registerRoutes(
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
       }
-      return res.status(500).json({ error: error.message || "خطا در ثبت حواله" });
+      console.error("Error in invoice creation:", error); // Log for debugging
+      return res.status(500).json({ error: "خطا در ثبت حواله" });
     }
   });
 
@@ -418,6 +420,43 @@ export async function registerRoutes(
       return res.json(inventory || { farmId: req.params.farmId, currentEggStock: 0 });
     } catch (error) {
       return res.status(500).json({ error: "خطا در دریافت موجودی" });
+    }
+  });
+
+  app.post("/api/notifications", async (req, res) => {
+    try {
+      const { userId, title, message, type, farmId } = req.body;
+      const notification = await storage.createNotification({
+        userId,
+        title,
+        message,
+        type,
+        farmId,
+      });
+      return res.status(201).json(notification);
+    } catch (error) {
+      return res.status(500).json({ error: "خطا در ایجاد اعلان" });
+    }
+  });
+
+  app.get("/api/notifications/:userId", async (req, res) => {
+    try {
+      const notifications = await storage.getNotificationsByUser(req.params.userId);
+      return res.json(notifications);
+    } catch (error) {
+      return res.status(500).json({ error: "خطا در دریافت اعلان‌ها" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const success = await storage.markNotificationAsRead(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "اعلان یافت نشد" });
+      }
+      return res.status(200).json({ message: "اعلان به عنوان خوانده‌شده علامت‌گذاری شد" });
+    } catch (error) {
+      return res.status(500).json({ error: "خطا در علامت‌گذاری اعلان" });
     }
   });
 

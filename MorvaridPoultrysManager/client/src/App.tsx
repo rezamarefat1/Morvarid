@@ -11,17 +11,18 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
-import Production from "@/pages/Production";
 import Sales from "@/pages/Sales";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
+import UserManagement from "@/pages/UserManagement";
 
 function AppRoutes() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/production" component={Production} />
+      <Route path="/user-management" component={UserManagement} />
+      <Route path="/farm-management" component={Settings} />
       <Route path="/sales" component={Sales} />
       <Route path="/reports" component={Reports} />
       <Route path="/settings" component={Settings} />

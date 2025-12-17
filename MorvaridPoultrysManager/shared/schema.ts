@@ -53,6 +53,7 @@ export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   description: text("description"),
+  unit: text("unit"), // واحد شمارش: کیلوگرم، کارتن، شانه، عدد، بسته
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -125,13 +126,32 @@ export const inventory = pgTable("inventory", {
   lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(), // 'statistics' | 'invoice'
+  farmId: varchar("farm_id").references(() => farms.id),
+  isRead: boolean("is_read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertInventorySchema = createInsertSchema(inventory).omit({
   id: true,
   lastUpdated: true,
 });
 
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+  isRead: true,
+});
+
 export type InsertInventory = z.infer<typeof insertInventorySchema>;
 export type Inventory = typeof inventory.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
 
 export interface DashboardStats {
   totalEggsToday: number;
@@ -200,6 +220,7 @@ export const userFormSchema = z.object({
 export const productFormSchema = z.object({
   name: z.string().min(1, "نام محصول الزامی است"),
   description: z.string().optional(),
+  unit: z.string().optional(),
   isActive: z.boolean().optional(),
 });
 

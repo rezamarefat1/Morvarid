@@ -80,39 +80,12 @@ export default function Login() {
           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary flex items-center justify-center">
             <Egg className="w-10 h-10 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">مرغداری مروارید</CardTitle>
+          <CardTitle className="text-2xl font-bold">صنایع غذایی و کشاورزی مروارید</CardTitle>
           <CardDescription>وارد حساب کاربری خود شوید</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {isBiometricAvailable && (
-            <>
-              <Button
-                variant="outline"
-                className="w-full h-14 text-lg gap-3"
-                onClick={handleBiometricLogin}
-                disabled={isBiometricLoading}
-                data-testid="button-biometric-login"
-              >
-                {isBiometricLoading ? (
-                  <Loader2 className="w-6 h-6 animate-spin" />
-                ) : (
-                  <Fingerprint className="w-6 h-6" />
-                )}
-                ورود با اثر انگشت
-              </Button>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">یا</span>
-                </div>
-              </div>
-            </>
-          )}
-
+          {/* فرم ورود - اول */}
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
@@ -174,8 +147,37 @@ export default function Login() {
             </form>
           </Form>
 
+          {/* دکمه اثر انگشت - پایین */}
+          {isBiometricAvailable && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">یا</span>
+                </div>
+              </div>
+
+              <Button
+                variant="outline"
+                className="w-full h-14 text-lg gap-3"
+                onClick={handleBiometricLogin}
+                disabled={isBiometricLoading}
+                data-testid="button-biometric-login"
+              >
+                {isBiometricLoading ? (
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                ) : (
+                  <Fingerprint className="w-6 h-6" />
+                )}
+                ورود با اثر انگشت
+              </Button>
+            </>
+          )}
+
           <p className="text-center text-xs text-muted-foreground">
-            نسخه ۱.۰.۰ - سیستم مدیریت یکپارچه مرغداری
+            نسخه ۱.۱.۰ - صنایع غذایی و کشاورزی مروارید - توسعه‌دهنده: رضا معرفت
           </p>
         </CardContent>
       </Card>

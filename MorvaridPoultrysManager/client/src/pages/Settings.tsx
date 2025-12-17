@@ -62,6 +62,7 @@ export default function Settings() {
 
   const [productName, setProductName] = useState("");
   const [productActive, setProductActive] = useState(true);
+  const [productUnit, setProductUnit] = useState("");
 
   const [userName, setUserName] = useState("");
   const [userUsername, setUserUsername] = useState("");
@@ -226,6 +227,7 @@ export default function Settings() {
     setEditingProduct(product);
     setProductName(product.name);
     setProductActive(product.isActive || false);
+    setProductUnit(product.unit || "");
     setShowProductDialog(true);
   };
 
@@ -255,10 +257,10 @@ export default function Settings() {
     if (editingProduct) {
       updateProductMutation.mutate({
         id: editingProduct.id,
-        data: { name: productName, isActive: productActive },
+        data: { name: productName, isActive: productActive, unit: productUnit },
       });
     } else {
-      createProductMutation.mutate({ name: productName, isActive: productActive });
+      createProductMutation.mutate({ name: productName, isActive: productActive, unit: productUnit });
     }
   };
 
@@ -372,69 +374,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="w-5 h-5" />
-              مدیریت فارم‌ها
-            </CardTitle>
-            <Dialog open={showFarmDialog} onOpenChange={(open) => {
-              setShowFarmDialog(open);
-              if (!open) resetFarmForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="w-4 h-4 ml-1" />
-                  فارم جدید
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{editingFarm ? "ویرایش فارم" : "ایجاد فارم جدید"}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">نام فارم</label>
-                    <Input value={farmName} onChange={(e) => setFarmName(e.target.value)} placeholder="نام فارم" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">تعداد پرندگان</label>
-                    <Input type="number" value={farmBirds} onChange={(e) => setFarmBirds(Number(e.target.value))} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">فعال</label>
-                    <Switch checked={farmActive} onCheckedChange={setFarmActive} />
-                  </div>
-                  <Button onClick={handleSaveFarm} className="w-full" disabled={!farmName}>
-                    ذخیره
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {farms?.map((farm) => (
-                <div key={farm.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{farm.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {farm.isActive ? "فعال" : "غیرفعال"} - {farm.totalBirds} پرنده
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEditFarm(farm)}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteFarmMutation.mutate(farm.id)}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -458,8 +397,39 @@ export default function Settings() {
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
+  <label className="text-sm font-medium mb-1 block">واحد شمارش</label>
+  <Select value={setProductUnit} onValueChange={setProductUnit}>
+    <SelectTrigger>
+      <SelectValue placeholder="انتخاب واحد شمارش" />
+    </SelectTrigger>
+    <SelectContent>
+      <SelectItem value="کیلوگرم">کیلوگرم</SelectItem>
+      <SelectItem value="کارتن">کارتن</SelectItem>
+      <SelectItem value="شانه">شانه</SelectItem>
+      <SelectItem value="عدد">عدد</SelectItem>
+      <SelectItem value="بسته">بسته</SelectItem>
+    </SelectContent>
+  </Select>
+</div>
+
+                  <div>
                     <label className="text-sm font-medium mb-1 block">نام محصول</label>
                     <Input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="نام محصول" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1 block">واحد شمارش</label>
+                    <Select value={productUnit} onValueChange={setProductUnit}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="انتخاب واحد شمارش" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="کیلوگرم">کیلوگرم</SelectItem>
+                        <SelectItem value="کارتن">کارتن</SelectItem>
+                        <SelectItem value="شانه">شانه</SelectItem>
+                        <SelectItem value="عدد">عدد</SelectItem>
+                        <SelectItem value="بسته">بسته</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium">فعال</label>
@@ -496,103 +466,6 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              کاربران سیستم
-            </CardTitle>
-            <Dialog open={showUserDialog} onOpenChange={(open) => {
-              setShowUserDialog(open);
-              if (!open) resetUserForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="w-4 h-4 ml-1" />
-                  کاربر جدید
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>{editingUser ? "ویرایش کاربر" : "ایجاد کاربر جدید"}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">نام کامل</label>
-                    <Input value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="نام کامل" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">نام کاربری</label>
-                    <Input value={userUsername} onChange={(e) => setUserUsername(e.target.value)} placeholder="نام کاربری" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">رمز عبور {editingUser && "(خالی بگذارید اگر نمی‌خواهید تغییر کند)"}</label>
-                    <Input type="password" value={userPassword} onChange={(e) => setUserPassword(e.target.value)} placeholder="رمز عبور" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">نقش</label>
-                    <Select value={userRole} onValueChange={(v) => setUserRole(v as any)}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="admin">مدیر سیستم</SelectItem>
-                        <SelectItem value="recording_officer">مسئول ثبت</SelectItem>
-                        <SelectItem value="sales_officer">مسئول فروش</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {(userRole === "recording_officer" || userRole === "sales_officer") && (
-                    <div>
-                      <label className="text-sm font-medium mb-1 block text-foreground">تخصیص فارم (الزامی)</label>
-                      <Select value={userFarmId} onValueChange={setUserFarmId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="انتخاب فارم" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allFarmsForAssignment?.map((farm) => (
-                            <SelectItem key={farm.id} value={farm.id}>
-                              {farm.name} {!farm.isActive && "(غیرفعال)"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">فعال</label>
-                    <Switch checked={userActive} onCheckedChange={setUserActive} />
-                  </div>
-                  <Button onClick={handleSaveUser} className="w-full" disabled={!userName || !userUsername}>
-                    ذخیره
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {users?.map((u) => (
-                <div key={u.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">{u.fullName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {u.username} - {getRoleName(u.role)}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEditUser(u)}>
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => deleteUserMutation.mutate(u.id)} disabled={u.id === user?.id}>
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>

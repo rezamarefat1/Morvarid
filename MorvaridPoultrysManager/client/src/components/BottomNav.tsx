@@ -1,10 +1,11 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Egg, FileText, BarChart3, Settings } from "lucide-react";
+import { LayoutDashboard, Egg, FileText, BarChart3, Settings, Users, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { path: "/", icon: LayoutDashboard, label: "داشبورد" },
-  { path: "/production", icon: Egg, label: "ثبت آمار" },
+  { path: "/user-management", icon: Users, label: "مدیریت کاربران" },
+  { path: "/farm-management", icon: Building2, label: "مدیریت فارم‌ها" },
   { path: "/sales", icon: FileText, label: "فروش" },
   { path: "/reports", icon: BarChart3, label: "گزارشات" },
   { path: "/settings", icon: Settings, label: "تنظیمات" },

@@ -135,34 +135,6 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>آمار فارم‌ها</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {stats?.farmStats?.length ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {stats.farmStats.map((farm) => (
-                <div key={farm.farmId} className="p-4 border rounded-lg">
-                  <h3 className="font-semibold mb-2">{farm.farmName}</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">تولید امروز: </span>
-                      <span className="font-semibold">{formatNumber(farm.eggsToday)}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">موجودی: </span>
-                      <span className="font-semibold">{formatNumber(farm.currentStock)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground py-4">هیچ فارم فعالی وجود ندارد</p>
-          )}
-        </CardContent>
-      </Card>
 
       <Dialog open={showFarmStatus} onOpenChange={setShowFarmStatus}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
