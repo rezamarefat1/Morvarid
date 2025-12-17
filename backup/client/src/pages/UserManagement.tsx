@@ -50,8 +50,6 @@ import { Users as UsersIcon, PlusCircle, Edit, Trash2 } from "lucide-react";
 import { getRoleName } from "@shared/schema";
 
 // Define user validation schema
-const [productUnit, setProductUnit] = useState("");
-
 const userSchema = z.object({
   username: z.string().min(3, "نام کاربری باید حداقل 3 کاراکتر باشد"),
   fullName: z.string().min(2, "نام کامل باید حداقل 2 کاراکتر باشد"),
