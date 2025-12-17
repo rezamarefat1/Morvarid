@@ -5,9 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
-import { BottomNav } from "@/components/BottomNav";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { AppSidebar } from "@/components/layout/AppSidebar";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
