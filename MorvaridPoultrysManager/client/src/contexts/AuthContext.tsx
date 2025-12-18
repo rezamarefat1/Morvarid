@@ -19,15 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("morvarid_user");
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem("morvarid_user");
-      }
-    }
-    setIsLoading(false);
+    checkAuthStatus();
 
     if (window.PublicKeyCredential) {
       PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
@@ -36,10 +28,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const checkAuthStatus = async () => {
+    try {
+      const response = await fetch("/api/auth/me", {
+        method: "GET",
+        credentials: "include", // Include cookies in the request
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+      } else {
+        // If not authenticated, clear any local storage
+        localStorage.removeItem("morvarid_user");
+      }
+    } catch (error) {
+      console.error("Error checking auth status:", error);
+      localStorage.removeItem("morvarid_user");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
+        credentials: "include", // Include cookies in the request
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
       });
@@ -47,7 +62,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
-        localStorage.setItem("morvarid_user", JSON.stringify(userData));
         return true;
       }
       return false;
@@ -56,9 +70,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("morvarid_user");
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include", // Include cookies in the request
+      });
+    } catch (error) {
+      console.error("Error during logout:", error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem("morvarid_user");
+    }
   };
 
   const loginWithBiometric = async (): Promise<boolean> => {
@@ -82,7 +105,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (savedUser) {
           const userData = JSON.parse(savedUser);
           setUser(userData);
-          localStorage.setItem("morvarid_user", JSON.stringify(userData));
           return true;
         }
       }

@@ -13,7 +13,7 @@ export async function exportProductionToExcel(records: ProductionRecord[], filen
 
   worksheet.columns = [
     { header: "تاریخ", key: "date", width: 15 },
-    { header: "نوع فارم", key: "farmType", width: 15 },
+    { header: "نام فارم", key: "farmName", width: 15 },
     { header: "تعداد تخم‌مرغ", key: "eggCount", width: 15 },
     { header: "تخم‌مرغ شکسته", key: "brokenEggs", width: 15 },
     { header: "تلفات", key: "mortality", width: 12 },
@@ -33,7 +33,7 @@ export async function exportProductionToExcel(records: ProductionRecord[], filen
   records.forEach((record) => {
     worksheet.addRow({
       date: record.date,
-      farmType: record.farmType === "morvaridi" ? "مرواریدی" : "متفرقه",
+      farmName: record.farmId, // Using farmId as placeholder; you'll need to fetch the farm name separately
       eggCount: record.eggCount,
       brokenEggs: record.brokenEggs,
       mortality: record.mortality,
@@ -78,10 +78,10 @@ export async function exportInvoicesToExcel(invoices: SalesInvoice[], filename: 
   worksheet.columns = [
     { header: "شماره حواله", key: "invoiceNumber", width: 15 },
     { header: "تاریخ", key: "date", width: 15 },
-    { header: "نوع فارم", key: "farmType", width: 15 },
+    { header: "نام فارم", key: "farmName", width: 15 },
     { header: "نام مشتری", key: "customerName", width: 20 },
     { header: "تلفن", key: "customerPhone", width: 15 },
-    { header: "تعداد", key: "eggQuantity", width: 12 },
+    { header: "تعداد", key: "quantity", width: 12 },
     { header: "قیمت واحد", key: "pricePerUnit", width: 15 },
     { header: "جمع کل", key: "totalPrice", width: 18 },
     { header: "وضعیت پرداخت", key: "isPaid", width: 15 },
@@ -99,10 +99,10 @@ export async function exportInvoicesToExcel(invoices: SalesInvoice[], filename: 
     worksheet.addRow({
       invoiceNumber: invoice.invoiceNumber,
       date: invoice.date,
-      farmType: invoice.farmType === "morvaridi" ? "مرواریدی" : "متفرقه",
+      farmName: invoice.farmId, // Using farmId as placeholder; you'll need to fetch the farm name separately
       customerName: invoice.customerName,
       customerPhone: invoice.customerPhone || "-",
-      eggQuantity: invoice.eggQuantity,
+      quantity: invoice.quantity,
       pricePerUnit: invoice.pricePerUnit,
       totalPrice: invoice.totalPrice,
       isPaid: invoice.isPaid ? "پرداخت شده" : "پرداخت نشده",

@@ -39,8 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import type { Farm, Product, User as UserType } from "@shared/schema";
-import { getRoleName } from "@shared/schema";
+import { type Farm, type Product, type User as UserType, getRoleName } from "@shared/schema";
 
 export default function Settings() {
   const { user, logout, isBiometricAvailable } = useAuth();
@@ -122,7 +121,7 @@ export default function Settings() {
   });
 
   const createProductMutation = useMutation({
-    mutationFn: async (data: { name: string; isActive: boolean }) => {
+    mutationFn: async (data: { name: string; description?: string | null; unit?: string | null; isActive?: boolean }) => {
       return apiRequest("POST", "/api/products", data);
     },
     onSuccess: () => {
@@ -398,7 +397,7 @@ export default function Settings() {
                 <div className="space-y-4">
                   <div>
   <label className="text-sm font-medium mb-1 block">واحد شمارش</label>
-  <Select value={setProductUnit} onValueChange={setProductUnit}>
+  <Select value={productUnit} onValueChange={setProductUnit}>
     <SelectTrigger>
       <SelectValue placeholder="انتخاب واحد شمارش" />
     </SelectTrigger>

@@ -4,12 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatJalaliDateLong, formatNumber, formatCurrency } from "@/lib/jalali";
 import { Building2, Users, FileText, BarChart3, AlertCircle, CheckCircle, XCircle } from "lucide-react";
-import type { DashboardStats, Farm, User, SalesInvoice } from "@shared/schema";
+import { type DashboardStats, type Farm, type User, type SalesInvoice, getRoleName } from "@shared/schema";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { getRoleName } from "@shared/schema";
 
 export default function Dashboard() {
   const today = new Date();

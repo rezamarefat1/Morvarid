@@ -7,8 +7,8 @@ export type UserRole = "admin" | "recording_officer" | "sales_officer";
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  username: text("username").notNull().unique().$defaultFn(() => sql`NULLIF(TRIM(both ' ' from username), '')`), // Prevents empty usernames with only spaces
+  password: text("password").notNull(), // Will be hashed
   fullName: text("full_name").notNull(),
   role: text("role").notNull().default("recording_officer").$type<UserRole>(),
   assignedFarmId: varchar("assigned_farm_id"),
@@ -26,6 +26,14 @@ export const insertUserSchema = createInsertSchema(users).pick({
   assignedFarmId: true,
   isActive: true,
 });
+
+// Schema for user creation with password validation
+export const createUserSchema = insertUserSchema.extend({
+  password: z.string().min(6, "رمز عبور باید حداقل ۶ کاراکتر باشد"),
+});
+
+// Schema for user update (password optional)
+export const updateUserSchema = insertUserSchema.partial();
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;

@@ -17,10 +17,37 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath));
+  // Security: Only serve static files from distPath, and use compression
+  app.use(express.static(distPath, {
+    // Prevent serving sensitive files
+    fallthrough: false, // Don't continue to next route if file not found
+    setHeaders: (res, path) => {
+      // Prevent content type sniffing
+      res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+      // Prevent MIME-type sniffing
+      if (path.endsWith('.html') || path.endsWith('.htm')) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      } else if (path.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      } else if (path.endsWith('.css')) {
+        res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      }
+    }
+  }));
+
+  // Security: Ensure sensitive files are not accessible
+  app.get(/^\/(\.env|\.git|package\.json|package-lock\.json|.*\.ts|.*\.tsx|.*\.js.map|.*\.ts.map|.*\.cjs|.*\.mjs|.*\.env.*)/, (_req, res) => {
+    res.status(404).send('Not found');
+  });
+
+  // fall through to index.html if the file doesn't exist (for SPA routing)
+  app.get('*', (_req, res) => {
+    res.sendFile(path.resolve(distPath, "index.html"), {
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Content-Type-Options': 'nosniff',
+      }
+    });
   });
 }

@@ -1,55 +1,31 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { fileURLToPath } from 'url';
+import { fileURLToPath } from "url";
 
-// Handle __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Function to safely import optional plugins
-async function getOptionalPlugins() {
-  if (process.env.NODE_ENV !== "production" && process.env.REPL_ID !== undefined) {
-    try {
-      const cartographer = await import("@replit/vite-plugin-cartographer");
-      const devBanner = await import("@replit/vite-plugin-dev-banner");
-      return [cartographer.cartographer(), devBanner.devBanner()];
-    } catch (e) {
-      console.warn("Optional plugins not available:", e.message);
-      return [];
-    }
-  }
-  return [];
-}
-
-export default defineConfig(async () => {
-  const optionalPlugins = await getOptionalPlugins();
-
-  return {
-    plugins: [
-      react(),
-      // Dynamically handled through runtime instead of as plugin
-      ...optionalPlugins,
-    ],
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "client", "src"),
-        "@shared": path.resolve(__dirname, "shared"),
-        "@assets": path.resolve(__dirname, "attached_assets"),
-      },
+export default defineConfig({
+  plugins: [react()],
+  root: path.resolve(__dirname, "client"),
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "client", "src"),
+      "@shared": path.resolve(__dirname, "shared"),
     },
-    root: path.resolve(__dirname, "client"),
-    build: {
-      outDir: path.resolve(__dirname, "dist", "public"),
-      emptyOutDir: true,
+  },
+  css: {
+    postcss: path.resolve(__dirname, "postcss.config.cjs"),
+  },
+  server: {
+    port: 5173,
+    proxy: {
+      "/api": "http://localhost:5000",
     },
-    server: {
-      host: '127.0.0.1', // Use 127.0.0.1 for Windows compatibility
-      allowedHosts: true,
-      fs: {
-        strict: true,
-        deny: ["**/.*"],
-      },
-    },
-  };
+  },
+  build: {
+    outDir: path.resolve(__dirname, "dist", "public"),
+    emptyOutDir: true,
+  },
 });

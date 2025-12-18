@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getRoleName } from "@shared/schema";
+import { type UserRole, getRoleName } from "@shared/schema";
 
 export function AppSidebar() {
   const [location] = useLocation();

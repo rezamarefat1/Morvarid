@@ -1,5 +1,5 @@
 import {
-  type User, type InsertUser,
+  type User, type InsertUser, type UserRole,
   type ProductionRecord, type ProductionForm,
   type SalesInvoice, type InvoiceForm,
   type Inventory,
@@ -12,6 +12,7 @@ import {
 import { db } from "./db";
 import { eq, sql, desc, and } from "drizzle-orm";
 import jalaali from "jalaali-js";
+import bcrypt from "bcrypt";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -58,6 +59,7 @@ export interface IStorage {
   generateInvoiceNumber(): Promise<string>;
 
   createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotification(id: string): Promise<Notification | undefined>;
   getNotificationsByUser(userId: string): Promise<Notification[]>;
   markNotificationAsRead(id: string): Promise<boolean>;
 }
@@ -99,12 +101,34 @@ class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    // Hash the password before storing
+    const hashedPassword = await bcrypt.hash(insertUser.password, 12);
+
+    // Ensure the role is properly typed as UserRole
+    const typedUser = {
+      ...insertUser,
+      password: hashedPassword,
+      role: insertUser.role as UserRole,
+    };
+    const [user] = await db.insert(users).values(typedUser).returning();
     return user;
   }
 
   async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
-    const [user] = await db.update(users).set(data).where(eq(users.id, id)).returning();
+    // Build the update object by mapping each field individually
+    const updateData: Partial<typeof users.$inferInsert> = { ...data };
+
+    // Hash password if it's being updated
+    if (data.password !== undefined) {
+      updateData.password = await bcrypt.hash(data.password, 12);
+    }
+
+    // Ensure role is properly typed
+    if (data.role !== undefined) {
+      updateData.role = data.role as UserRole;
+    }
+
+    const [user] = await db.update(users).set(updateData).where(eq(users.id, id)).returning();
     return user;
   }
 
@@ -385,6 +409,11 @@ class DatabaseStorage implements IStorage {
   async generateInvoiceNumber(): Promise<string> {
     const nextNumber = await this.getNextInvoiceNumber();
     return `INV-${Date.now()}-${nextNumber}`;
+  }
+
+  async getNotification(id: string): Promise<Notification | undefined> {
+    const [notification] = await db.select().from(notifications).where(eq(notifications.id, id));
+    return notification;
   }
 
   async createNotification(notification: InsertNotification): Promise<Notification> {
